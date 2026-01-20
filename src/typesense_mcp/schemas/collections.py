@@ -21,6 +21,33 @@ DOCUMENT_STATUSES = ["active", "draft", "archived", "superseded"]
 
 EMBEDDING_DIMENSIONS = 1536  # OpenAI text-embedding-3-small
 
+# Vector search configuration
+# Using cosine distance (best for normalized embeddings like OpenAI's)
+VECTOR_DISTANCE_METRIC = "cosine"
+
+# =============================================================================
+# Vector Search Strategy: Exact (Flat) vs HNSW
+# =============================================================================
+# We explicitly choose EXACT (flat) search over HNSW for this use case:
+#
+# WHY EXACT SEARCH:
+#   1. Accuracy is critical - policy documents have legal/compliance implications
+#      HNSW achieves ~95-99% recall, meaning 1-5% of relevant docs may be missed
+#   2. Dataset size is bounded - single-tenant org with ~100-500 policies
+#      yields ~5,000-25,000 chunks, well within exact search performance
+#   3. Query volume is low - chatbot queries, not high-throughput API
+#   4. Hybrid search pre-filters - keyword matching reduces vector search space
+#
+# WHEN TO CONSIDER HNSW:
+#   - Collection exceeds 100,000+ vectors
+#   - Search latency exceeds acceptable thresholds (>500ms)
+#   - You can tolerate 1-5% missed relevant results
+#
+# Typesense uses flat search by default for smaller collections.
+# To force HNSW if needed later, set at search time:
+#   vector_query: "embedding:([...], k:10, flat_search_cutoff:0)"
+# =============================================================================
+
 
 # =============================================================================
 # Collection 1: documents_metadata
@@ -188,6 +215,8 @@ DOCUMENT_CHUNKS_SCHEMA = {
             "facet": False,
         },
         # Vector embedding for semantic search
+        # Using cosine distance for normalized OpenAI embeddings
+        # Typesense will use exact (flat) search by default for this collection size
         {
             "name": "embedding",
             "type": "float[]",
@@ -199,6 +228,7 @@ DOCUMENT_CHUNKS_SCHEMA = {
                 },
             },
             "num_dim": EMBEDDING_DIMENSIONS,
+            "vec_dist": VECTOR_DISTANCE_METRIC,
         },
         # Section heading for context (e.g., "Section 3: Eligibility")
         {
@@ -265,10 +295,12 @@ DOCUMENT_CHUNKS_MANUAL_EMBEDDING_SCHEMA = {
         {"name": "chunk_index", "type": "int32", "sort": True},
         {"name": "text", "type": "string"},
         # Pre-computed embedding (you provide the vector)
+        # Uses exact (flat) search for 100% recall
         {
             "name": "embedding",
             "type": "float[]",
             "num_dim": EMBEDDING_DIMENSIONS,
+            "vec_dist": VECTOR_DISTANCE_METRIC,
         },
         {"name": "section_title", "type": "string", "optional": True},
         {"name": "page_number", "type": "int32", "optional": True},
