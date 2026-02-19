@@ -6,7 +6,7 @@ collection management, and document operations via the Model Context Protocol.
 
 from __future__ import annotations
 
-from mcp.server.fastmcp import FastMCP
+from fastmcp import FastMCP
 
 from .client import TypesenseClientManager
 from .config import TypesenseConfig
