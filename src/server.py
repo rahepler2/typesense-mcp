@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import os
 
-from mcp.server.fastmcp import FastMCP
+from fastmcp import FastMCP
 
 from .client import TypesenseClientManager
 from .config import TypesenseConfig
