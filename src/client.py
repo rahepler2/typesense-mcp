@@ -21,7 +21,7 @@ class TypesenseClientManager:
         return self._client
 
     def health(self) -> dict:
-        return self.client.operations.perform("health")
+        return {"ok": self.client.operations.is_healthy()}
 
     # -- Collections ----------------------------------------------------------
 
