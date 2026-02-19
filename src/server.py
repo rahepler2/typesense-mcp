@@ -6,6 +6,8 @@ collection management, and document operations via the Model Context Protocol.
 
 from __future__ import annotations
 
+import os
+
 from mcp.server.fastmcp import FastMCP
 
 from .client import TypesenseClientManager
@@ -23,8 +25,14 @@ def create_server(config: TypesenseConfig | None = None) -> FastMCP:
     Returns:
         A configured FastMCP server instance ready to run.
     """
+    host = os.environ.get("MCP_HOST", "0.0.0.0")
+    port = int(os.environ.get("MCP_PORT", "8000"))
+
     mcp = FastMCP(
         "typesense-mcp",
+        host=host,
+        port=port,
+        stateless_http=True,
         instructions="""Typesense MCP Server — search engine interface for RAG applications.
 
 This server connects to a Typesense 29.0+ cluster and provides:

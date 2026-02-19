@@ -1,0 +1,21 @@
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: typesense-mcp
+  labels:
+    app: typesense-mcp
+spec:
+  scaleTargetRef:
+    name: typesense-mcp
+  minReplicaCount: 1
+  maxReplicaCount: 10
+  cooldownPeriod: 60
+  pollingInterval: 15
+  triggers:
+    # Scale based on incoming HTTP traffic via the KEDA HTTP Add-on.
+    # Requires: https://github.com/kedacore/http-add-on
+    - type: http
+      metadata:
+        hosts: "typesense-mcp.default.svc.cluster.local"
+        pathPrefixes: "/mcp"
+        targetPendingRequests: "10"

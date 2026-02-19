@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: typesense-mcp
+  labels:
+    app: typesense-mcp
+spec:
+  type: ClusterIP
+  selector:
+    app: typesense-mcp
+  ports:
+    - port: 8000
+      targetPort: 8000
+      protocol: TCP
+      name: mcp
