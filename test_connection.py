@@ -8,8 +8,8 @@ import sys
 # Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from src.typesense_mcp.client import TypesenseClientManager
-from src.typesense_mcp.config import TypesenseConfig
+from src.client import TypesenseClientManager
+from src.config import TypesenseConfig
 
 
 def main():
