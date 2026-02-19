@@ -23,7 +23,8 @@ requires = ["setuptools>=75.0"]
 build-backend = "setuptools.backends._legacy:_Backend"
 
 [tool.setuptools.packages.find]
-where = ["src"]
+where = ["."]
+include = ["src*"]
 
 [tool.ruff]
 line-length = 100
