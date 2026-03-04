@@ -1,7 +1,7 @@
 """Typesense MCP Server — main server module.
 
 Provides hybrid search, natural language queries (v29.0), RAG retrieval,
-collection management, and document operations via the Model Context Protocol.
+and read-only collection introspection via the Model Context Protocol.
 """
 
 from __future__ import annotations
@@ -12,7 +12,7 @@ from fastmcp import FastMCP
 
 from .client import TypesenseClientManager
 from .config import TypesenseConfig
-from .tools import collections, documents, nl_models, rag, search
+from .tools import collections, rag, search
 
 
 def create_server(config: TypesenseConfig | None = None) -> FastMCP:
@@ -33,23 +33,22 @@ def create_server(config: TypesenseConfig | None = None) -> FastMCP:
         host=host,
         port=port,
         stateless_http=True,
-        instructions="""Typesense MCP Server — search engine interface for RAG applications.
+        instructions="""Typesense MCP Server — read-only search interface for RAG applications.
 
-This server connects to a Typesense 29.0+ cluster and provides:
+This server connects to a Typesense 29.0+ cluster and provides search and
+collection introspection tools. It does NOT provide write operations.
 
 1. **Hybrid Search** — Combine keyword + semantic/vector search for best results.
    Use `hybrid_search` with both text and embedding fields in `query_by`.
 
 2. **Natural Language Search** (v29.0) — Let an LLM convert natural language queries
    into structured Typesense filters and sorts automatically.
-   Set up a model with `create_nl_search_model`, then use `natural_language_search`.
+   Use `natural_language_search` with a pre-configured NL model ID.
 
 3. **RAG Retrieval** — Search a metadata collection, then retrieve linked chunks
    from an embeddings collection using `rag_search_and_retrieve_chunks`.
 
-4. **Collection Management** — List, describe, analyze, create, and modify collections.
-
-5. **Document Operations** — CRUD operations, bulk import/export.
+4. **Collection Introspection** — List, describe, and analyze collections (read-only).
 
 **Typical RAG workflow:**
 1. Use `analyze_collection` to understand available collections and fields.
@@ -63,11 +62,9 @@ Combine with && (AND) and || (OR).
 
     ts = TypesenseClientManager(config)
 
-    # Register all tool modules
+    # Register read-only tool modules (search + collection introspection)
     collections.register(mcp, ts)
     search.register(mcp, ts)
     rag.register(mcp, ts)
-    documents.register(mcp, ts)
-    nl_models.register(mcp, ts)
 
     return mcp

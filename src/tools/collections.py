@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import json
-
 from mcp.server.fastmcp import FastMCP
 
 from ..client import TypesenseClientManager
@@ -149,41 +147,3 @@ def register(mcp: FastMCP, ts: TypesenseClientManager) -> None:
             "sample_documents": samples,
         }
 
-    @mcp.tool()
-    def create_collection(schema_json: str) -> dict:
-        """Create a new collection in Typesense.
-
-        Args:
-            schema_json: JSON string of the collection schema. Must include 'name'
-                and 'fields' at minimum. Example:
-                {
-                    "name": "products",
-                    "fields": [
-                        {"name": "title", "type": "string"},
-                        {"name": "price", "type": "float", "facet": true}
-                    ]
-                }
-        """
-        schema = json.loads(schema_json)
-        return ts.create_collection(schema)
-
-    @mcp.tool()
-    def delete_collection(collection_name: str) -> dict:
-        """Delete a collection and all its documents. This is irreversible.
-
-        Args:
-            collection_name: Name of the collection to delete.
-        """
-        return ts.delete_collection(collection_name)
-
-    @mcp.tool()
-    def update_collection_schema(collection_name: str, schema_changes_json: str) -> dict:
-        """Update a collection's schema (add/drop fields).
-
-        Args:
-            collection_name: Name of the collection to update.
-            schema_changes_json: JSON string with the schema changes. Example:
-                {"fields": [{"name": "new_field", "type": "string"}]}
-        """
-        changes = json.loads(schema_changes_json)
-        return ts.update_collection(collection_name, changes)
