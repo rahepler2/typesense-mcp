@@ -9,6 +9,8 @@ from __future__ import annotations
 import os
 
 from fastmcp import FastMCP
+from starlette.requests import Request
+from starlette.responses import JSONResponse, Response
 
 from .client import TypesenseClientManager
 from .config import TypesenseConfig
@@ -66,5 +68,34 @@ Combine with && (AND) and || (OR).
     collections.register(mcp, ts)
     search.register(mcp, ts)
     rag.register(mcp, ts)
+
+    # --- Azure Container Apps health probes ---
+
+    @mcp.custom_route("/health", methods=["GET"])
+    async def health(request: Request) -> Response:
+        """Liveness probe — confirms the process is running."""
+        return JSONResponse({"status": "alive"})
+
+    @mcp.custom_route("/ready", methods=["GET"])
+    async def ready(request: Request) -> Response:
+        """Readiness probe — checks Typesense connectivity."""
+        try:
+            result = ts.health()
+            if result.get("ok"):
+                return JSONResponse({"status": "ready"})
+            return JSONResponse({"status": "not ready"}, status_code=503)
+        except Exception:
+            return JSONResponse({"status": "not ready"}, status_code=503)
+
+    @mcp.custom_route("/startup", methods=["GET"])
+    async def startup(request: Request) -> Response:
+        """Startup probe — confirms server is initialized and Typesense is reachable."""
+        try:
+            result = ts.health()
+            if result.get("ok"):
+                return JSONResponse({"status": "started"})
+            return JSONResponse({"status": "starting"}, status_code=503)
+        except Exception:
+            return JSONResponse({"status": "starting"}, status_code=503)
 
     return mcp
