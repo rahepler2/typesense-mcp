@@ -106,15 +106,7 @@ Combine with && (AND) and || (OR).
 
     @mcp.custom_route("/startup", methods=["GET"])
     async def startup(request: Request) -> Response:
-        """Startup probe — confirms server is initialized and Typesense is reachable."""
-        try:
-            result = ts.health()
-            if result.get("ok"):
-                return JSONResponse({"status": "started"})
-            logger.warning("Typesense health returned not ok: %s", result)
-            return JSONResponse({"status": "starting"}, status_code=503)
-        except Exception as exc:
-            logger.warning("Startup probe failed: %s", exc)
-            return JSONResponse({"status": "starting", "error": str(exc)}, status_code=503)
+        """Startup probe — confirms the server process is running."""
+        return JSONResponse({"status": "started"})
 
     return mcp
