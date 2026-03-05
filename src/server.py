@@ -9,12 +9,23 @@ from __future__ import annotations
 import os
 
 from fastmcp import FastMCP
+from starlette.middleware import Middleware
+from starlette.middleware.cors import CORSMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
 from .client import TypesenseClientManager
 from .config import TypesenseConfig
 from .tools import collections, rag, search
+
+# CORS middleware for MS MCP Gateway, Open WebUI, and other browser-based clients
+CORS_MIDDLEWARE = Middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
+    allow_headers=["*"],
+    expose_headers=["*"],
+)
 
 
 def create_server(config: TypesenseConfig | None = None) -> FastMCP:
