@@ -6,6 +6,7 @@ and read-only collection introspection via the Model Context Protocol.
 
 from __future__ import annotations
 
+import logging
 import os
 
 from fastmcp import FastMCP
@@ -17,6 +18,8 @@ from starlette.responses import JSONResponse, Response
 from .client import TypesenseClientManager
 from .config import TypesenseConfig
 from .tools import collections, rag, search
+
+logger = logging.getLogger(__name__)
 
 # CORS middleware for MS MCP Gateway, Open WebUI, and other browser-based clients
 CORS_MIDDLEWARE = Middleware(
@@ -68,6 +71,13 @@ Combine with && (AND) and || (OR).
     )
 
     ts = TypesenseClientManager(config)
+    ts_config = config or TypesenseConfig()
+    logger.info(
+        "Typesense target: %s://%s:%s",
+        ts_config.protocol,
+        ts_config.host,
+        ts_config.port,
+    )
 
     # Register read-only tool modules (search + collection introspection)
     collections.register(mcp, ts)
@@ -88,9 +98,11 @@ Combine with && (AND) and || (OR).
             result = ts.health()
             if result.get("ok"):
                 return JSONResponse({"status": "ready"})
+            logger.warning("Typesense health returned not ok: %s", result)
             return JSONResponse({"status": "not ready"}, status_code=503)
-        except Exception:
-            return JSONResponse({"status": "not ready"}, status_code=503)
+        except Exception as exc:
+            logger.warning("Readiness probe failed: %s", exc)
+            return JSONResponse({"status": "not ready", "error": str(exc)}, status_code=503)
 
     @mcp.custom_route("/startup", methods=["GET"])
     async def startup(request: Request) -> Response:
@@ -99,8 +111,10 @@ Combine with && (AND) and || (OR).
             result = ts.health()
             if result.get("ok"):
                 return JSONResponse({"status": "started"})
+            logger.warning("Typesense health returned not ok: %s", result)
             return JSONResponse({"status": "starting"}, status_code=503)
-        except Exception:
-            return JSONResponse({"status": "starting"}, status_code=503)
+        except Exception as exc:
+            logger.warning("Startup probe failed: %s", exc)
+            return JSONResponse({"status": "starting", "error": str(exc)}, status_code=503)
 
     return mcp
