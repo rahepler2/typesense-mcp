@@ -1,7 +1,7 @@
 """Typesense MCP Server — main server module.
 
 Provides hybrid search, natural language queries (v29.0), RAG retrieval,
-collection management, and document operations via the Model Context Protocol.
+and read-only collection introspection via the Model Context Protocol.
 """
 
 from __future__ import annotations
@@ -9,10 +9,23 @@ from __future__ import annotations
 import os
 
 from fastmcp import FastMCP
+from starlette.middleware import Middleware
+from starlette.middleware.cors import CORSMiddleware
+from starlette.requests import Request
+from starlette.responses import JSONResponse, Response
 
 from .client import TypesenseClientManager
 from .config import TypesenseConfig
-from .tools import collections, documents, nl_models, rag, search
+from .tools import collections, rag, search
+
+# CORS middleware for MS MCP Gateway, Open WebUI, and other browser-based clients
+CORS_MIDDLEWARE = Middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
+    allow_headers=["*"],
+    expose_headers=["*"],
+)
 
 
 def create_server(config: TypesenseConfig | None = None) -> FastMCP:
@@ -33,23 +46,22 @@ def create_server(config: TypesenseConfig | None = None) -> FastMCP:
         host=host,
         port=port,
         stateless_http=True,
-        instructions="""Typesense MCP Server — search engine interface for RAG applications.
+        instructions="""Typesense MCP Server — read-only search interface for RAG applications.
 
-This server connects to a Typesense 29.0+ cluster and provides:
+This server connects to a Typesense 29.0+ cluster and provides search and
+collection introspection tools. It does NOT provide write operations.
 
 1. **Hybrid Search** — Combine keyword + semantic/vector search for best results.
    Use `hybrid_search` with both text and embedding fields in `query_by`.
 
 2. **Natural Language Search** (v29.0) — Let an LLM convert natural language queries
    into structured Typesense filters and sorts automatically.
-   Set up a model with `create_nl_search_model`, then use `natural_language_search`.
+   Use `natural_language_search` with a pre-configured NL model ID.
 
 3. **RAG Retrieval** — Search a metadata collection, then retrieve linked chunks
    from an embeddings collection using `rag_search_and_retrieve_chunks`.
 
-4. **Collection Management** — List, describe, analyze, create, and modify collections.
-
-5. **Document Operations** — CRUD operations, bulk import/export.
+4. **Collection Introspection** — List, describe, and analyze collections (read-only).
 
 **Typical RAG workflow:**
 1. Use `analyze_collection` to understand available collections and fields.
@@ -63,11 +75,38 @@ Combine with && (AND) and || (OR).
 
     ts = TypesenseClientManager(config)
 
-    # Register all tool modules
+    # Register read-only tool modules (search + collection introspection)
     collections.register(mcp, ts)
     search.register(mcp, ts)
     rag.register(mcp, ts)
-    documents.register(mcp, ts)
-    nl_models.register(mcp, ts)
+
+    # --- Azure Container Apps health probes ---
+
+    @mcp.custom_route("/health", methods=["GET"])
+    async def health(request: Request) -> Response:
+        """Liveness probe — confirms the process is running."""
+        return JSONResponse({"status": "alive"})
+
+    @mcp.custom_route("/ready", methods=["GET"])
+    async def ready(request: Request) -> Response:
+        """Readiness probe — checks Typesense connectivity."""
+        try:
+            result = ts.health()
+            if result.get("ok"):
+                return JSONResponse({"status": "ready"})
+            return JSONResponse({"status": "not ready"}, status_code=503)
+        except Exception:
+            return JSONResponse({"status": "not ready"}, status_code=503)
+
+    @mcp.custom_route("/startup", methods=["GET"])
+    async def startup(request: Request) -> Response:
+        """Startup probe — confirms server is initialized and Typesense is reachable."""
+        try:
+            result = ts.health()
+            if result.get("ok"):
+                return JSONResponse({"status": "started"})
+            return JSONResponse({"status": "starting"}, status_code=503)
+        except Exception:
+            return JSONResponse({"status": "starting"}, status_code=503)
 
     return mcp

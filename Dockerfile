@@ -1,7 +1,7 @@
 FROM python:3.12-slim AS builder
 
 WORKDIR /app
-COPY pyproject.toml .
+COPY . .
 RUN pip install --no-cache-dir --prefix=/install .
 
 FROM python:3.12-slim
@@ -21,7 +21,7 @@ ENV MCP_TRANSPORT=streamable-http \
 
 EXPOSE 8000
 
-HEALTHCHECK --interval=10s --timeout=3s --start-period=5s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/mcp')" || exit 1
+HEALTHCHECK --interval=10s --timeout=3s --start-period=10s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" || exit 1
 
 ENTRYPOINT ["python", "main.py"]

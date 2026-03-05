@@ -3,11 +3,14 @@
 
 import os
 
-from src.server import create_server
+from src.server import CORS_MIDDLEWARE, create_server
 
 transport = os.environ.get("MCP_TRANSPORT", "streamable-http")
 
 mcp = create_server()
 
 if __name__ == "__main__":
-    mcp.run(transport=transport)
+    if transport in ("streamable-http", "sse", "http"):
+        mcp.run(transport=transport, middleware=[CORS_MIDDLEWARE])
+    else:
+        mcp.run(transport=transport)

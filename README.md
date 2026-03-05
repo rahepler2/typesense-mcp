@@ -1,16 +1,15 @@
 # typesense-mcp
 
-An MCP (Model Context Protocol) server for [Typesense](https://typesense.org/) 29.0+, built for LLM RAG chatbot applications. Provides hybrid search, natural language queries, metadata-to-chunks retrieval, and full collection/document management.
+A read-only MCP (Model Context Protocol) server for [Typesense](https://typesense.org/) 29.0+, built for LLM RAG chatbot applications. Provides hybrid search, natural language queries, metadata-to-chunks retrieval, and collection introspection over Streamable HTTP.
 
 ## Features
 
 - **Hybrid Search** — Combine keyword + semantic/vector search with configurable rank fusion
 - **Natural Language Search** (v29.0) — LLM-powered intent detection that converts free-form queries into structured Typesense filters and sorts
 - **RAG Retrieval** — Search metadata collections and retrieve linked chunks from embeddings collections via `doc_id`
-- **Collection Management** — List, describe, analyze (with facet summaries and sample docs), create, update, delete
-- **Document Operations** — CRUD, bulk import/export, filtered deletes
+- **Collection Introspection** — List, describe, and analyze collections (read-only, no write operations)
 - **Multi-Search** — Federated search across multiple collections in one request
-- **NL Model Management** — Configure and manage natural language search models (OpenAI, Gemini, Cloudflare, etc.)
+- **Azure-ready** — Built-in health, readiness, and startup probe endpoints for Azure Container Apps
 
 ## Prerequisites
 
@@ -18,23 +17,9 @@ An MCP (Model Context Protocol) server for [Typesense](https://typesense.org/) 2
 - [uv](https://docs.astral.sh/uv/) (recommended) or pip
 - A running Typesense 29.0+ cluster
 
-## Installation
-
-```bash
-# Clone the repo
-git clone https://github.com/rahepler2/typesense-mcp.git
-cd typesense-mcp
-
-# Install with uv (recommended)
-uv sync
-
-# Or with pip
-pip install -e .
-```
-
 ## Configuration
 
-Set the following environment variables to connect to your Typesense cluster:
+Set the following environment variables (see `.env.example`):
 
 | Variable | Default | Description |
 |----------|---------|-------------|
@@ -43,15 +28,79 @@ Set the following environment variables to connect to your Typesense cluster:
 | `TYPESENSE_PROTOCOL` | `http` | Protocol (`http` or `https`) |
 | `TYPESENSE_API_KEY` | *(required)* | Your Typesense API key |
 | `TYPESENSE_CONNECTION_TIMEOUT` | `10` | Connection timeout in seconds |
+| `MCP_TRANSPORT` | `streamable-http` | Transport mode (`streamable-http` or `stdio`) |
+| `MCP_HOST` | `0.0.0.0` | Server bind address |
+| `MCP_PORT` | `8000` | Server port |
 
 ## Running the Server
 
-```bash
-# With uv
-uv run mcp run main.py
+### Local (pip / uv)
 
-# Or directly
+```bash
+# Clone and install
+git clone https://github.com/rahepler2/typesense-mcp.git
+cd typesense-mcp
+
+# Install with uv (recommended)
+uv sync
+
+# Or with pip
+pip install -e .
+
+# Run
 python main.py
+```
+
+### Docker
+
+```bash
+# Build
+docker build -t typesense-mcp .
+
+# Run
+docker run -p 8000:8000 \
+  -e TYPESENSE_HOST=your-typesense-host \
+  -e TYPESENSE_PORT=8108 \
+  -e TYPESENSE_PROTOCOL=https \
+  -e TYPESENSE_API_KEY=your-api-key \
+  typesense-mcp
+```
+
+The server will be available at `http://localhost:8000/mcp`.
+
+### Azure Container Apps
+
+The server includes built-in health probe endpoints for Azure Container Apps:
+
+| Endpoint | Probe Type | Behavior |
+|----------|-----------|----------|
+| `GET /health` | Liveness | Returns `200` if the process is alive |
+| `GET /ready` | Readiness | Returns `200` if Typesense is reachable, `503` if not |
+| `GET /startup` | Startup | Returns `200` once Typesense is reachable, `503` while starting |
+
+Example probe configuration for your container app:
+
+```yaml
+probes:
+  - type: Startup
+    httpGet:
+      path: /startup
+      port: 8000
+    initialDelaySeconds: 3
+    periodSeconds: 5
+    failureThreshold: 10
+  - type: Liveness
+    httpGet:
+      path: /health
+      port: 8000
+    periodSeconds: 10
+    failureThreshold: 3
+  - type: Readiness
+    httpGet:
+      path: /ready
+      port: 8000
+    periodSeconds: 5
+    failureThreshold: 3
 ```
 
 ## Claude Desktop / Claude Code Configuration
@@ -77,7 +126,7 @@ Add this to your MCP server config:
 
 ## Available Tools
 
-### Collection Management
+### Collection Introspection (read-only)
 
 | Tool | Description |
 |------|-------------|
@@ -86,9 +135,6 @@ Add this to your MCP server config:
 | `describe_collection` | Get full schema for a collection |
 | `get_collection_fields` | Get concise field info (types, facets, embedding fields) |
 | `analyze_collection` | Deep analysis: schema, samples, facet distributions, embedding fields |
-| `create_collection` | Create a new collection from a JSON schema |
-| `delete_collection` | Delete a collection |
-| `update_collection_schema` | Add or drop fields on an existing collection |
 
 ### Search
 
@@ -106,29 +152,6 @@ Add this to your MCP server config:
 | `rag_search_and_retrieve_chunks` | Search metadata → fetch linked chunks by `doc_id` |
 | `rag_hybrid_chunk_search` | Hybrid search directly in the chunks/embeddings collection |
 | `get_document_chunks` | Get all chunks for a specific document by `doc_id` |
-
-### Document Operations
-
-| Tool | Description |
-|------|-------------|
-| `get_document` | Retrieve a document by ID |
-| `create_document` | Create a new document |
-| `upsert_document` | Create or replace a document |
-| `update_document` | Partially update a document |
-| `delete_document` | Delete a document by ID |
-| `delete_documents_by_filter` | Delete all documents matching a filter |
-| `import_documents` | Bulk import documents |
-| `export_documents` | Export documents (with optional filters) |
-
-### NL Search Models (v29.0)
-
-| Tool | Description |
-|------|-------------|
-| `create_nl_search_model` | Configure an LLM for natural language query understanding |
-| `list_nl_search_models` | List all configured NL models |
-| `get_nl_search_model` | Get details of an NL model |
-| `update_nl_search_model` | Update an NL model's configuration |
-| `delete_nl_search_model` | Remove an NL model |
 
 ## Usage Examples
 
@@ -174,11 +197,11 @@ category:=electronics || category:=books # OR
 
 ## Extending
 
-The server is modular — each tool category is a separate module under `src/typesense_mcp/tools/`. To add new tools:
+The server is modular — each tool category is a separate module under `src/tools/`. To add new tools:
 
-1. Create a new module in `src/typesense_mcp/tools/`
+1. Create a new module in `src/tools/`
 2. Define a `register(mcp, ts)` function that adds tools via `@mcp.tool()`
-3. Import and register it in `src/typesense_mcp/server.py`
+3. Import and register it in `src/server.py`
 
 ## License
 
